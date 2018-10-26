@@ -1,4 +1,5 @@
 pragma solidity ^0.4.22;
+pragma experimental ABIEncoderV2;
 //import "https://github.com/pipermerriam/ethereum-datetime/contracts";
 import "https://github.com/pipermerriam/ethereum-datetime/contracts/DateTime.sol";
 //import "https://github.com/pipermerriam/ethereum-datetime/contracts/api.sol";
@@ -24,18 +25,18 @@ contract Protocol is DateTime{
     PBalance balance;
     mapping (address => items) public InvestorInfo;
     mapping (address => items) public ManagerInfo;
-    items public InvestorItem;
-    items public ManagerItem;
-    uint64 public currenttime = uint64(now);
-    uint64 public _currenttime;
-    uint64 public PL;
-    uint64 public DL;
+
+    bool mark1;
+    bool mark2;
+    bool mark3;
+    bool mark4;
+    
+
     
     constructor() public {
         balance = PBalance(0,0);
-        _currenttime = uint64(toTimestamp(2018,10,25,23,8,0));
     }
-    function receive(uint256 amount,uint8 kind) public returns (bool){
+    function receive(uint256 amount,uint8 kind) public payable returns (bool){
         if(kind == 0){
             if(msg.sender.call(bytes4(keccak256("addBTCBalance(uint256 amount)")),-amount) == false){
                 require(false);   
@@ -53,7 +54,7 @@ contract Protocol is DateTime{
         return false;
         
     }
-    function give(uint256 amount,uint8 kind) public returns (bool){
+    function give(uint256 amount,uint8 kind) public payable returns (bool){
         if(kind == 0){
             if(balance.BTCBalance < amount) return false;
             balance.BTCBalance += -amount;
@@ -72,30 +73,28 @@ contract Protocol is DateTime{
         }
         return false;
     }
-    
-    function createProtocol(address investor,address manager,uint8 pT,uint8 dT,uint256 pR,uint256 dR,uint16 pYear,uint8 pMonth,uint8 pDay,uint16 dYear,uint8 dMonth,uint8 dDay) public{
-        uint64 pL = uint64(toTimestamp(pYear, pMonth, pDay,23,20,0));
-        uint64 dL = uint64(toTimestamp(dYear, dMonth, dDay,23,25,0));
-        
-        PL = pL; DL = dL;
-        
-        //memory类型参数不支持隐式传递
-        items storage record;
-        record.Investor = investor;
-        record.Manager = manager;
-        record.paymentToken = pT;
-        record.deliverToken = dT;
-        record.paymentRequired = pR;
-        record.deliverRequired = dR;
-        /*record.paymentAlready = false;
-        record.deliverAlready = false;*/
-        record.paymentLimit = pL;
-        record.deliverLimit = dL;
-        InvestorInfo[record.Investor] = record;
-        ManagerInfo[record.Manager] = record;
-        InvestorItem = record;
-        ManagerItem = record;
+    function createProtocol(items temp) public{
+        InvestorInfo[temp.Investor] = temp;
+        ManagerInfo[temp.Manager] = temp;
+        /*InvestorItem = InvestorInfo[temp.Investor];
+        ManagerItem = InvestorInfo[temp.Investor];*/
     }
+    function createtime(uint16 year,uint8 month,uint8 day,uint8 hour,uint8 minute,uint8 second) public pure returns (uint64){
+        return uint64(toTimestamp(year,month,day,hour,minute,second));
+    }
+    
+    /*function st (address inv) public{
+        InvestorInfo[inv].paymentAlready = true;
+    }
+    
+    function at (address inv,address man) public view returns (bool a,bool b,bool c,bool d){
+        a =  InvestorInfo[inv].paymentAlready;
+        b = ManagerInfo[man].paymentAlready;
+        c = InvestorItem.paymentAlready;
+        d = ManagerItem.paymentAlready;
+        
+    }*/
+    
     function payment() public payable returns (bool){//caller:Investor
         if(InvestorInfo[msg.sender].paymentAlready == true) return false;//只允许转账一次
         if(now < InvestorInfo[msg.sender].paymentLimit){
@@ -108,6 +107,8 @@ contract Protocol is DateTime{
                 return false;//转账失败
             }
             InvestorInfo[msg.sender].paymentAlready = true;
+            address temp = InvestorInfo[msg.sender].Manager;
+            ManagerInfo[temp].paymentAlready = true;
             return true;
         }
         return false;
@@ -141,6 +142,8 @@ contract Protocol is DateTime{
                 return false;
             }
             ManagerInfo[msg.sender].deliverAlready = true;
+            address temp = ManagerInfo[msg.sender].Investor;
+            InvestorInfo[temp].deliverAlready = true;
             return true;
         }
         return false;
